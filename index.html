@@ -65,8 +65,6 @@ main{flex:1;display:flex;flex-direction:column}
 @supports (height:100dvh){.board-wrap{width:min(100vw,clamp(220px,calc(100dvh - 428px),520px))}}
 .board{position:relative;width:100%;aspect-ratio:1/1}
 .board svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible;cursor:none;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.seg:focus,.seg:focus-visible{outline:none}
-.aim-hi{fill:rgba(255,255,255,.3);stroke:#fff;stroke-width:.9;pointer-events:none}
 .num{font-family:var(--display);font-weight:700;font-size:14px;fill:var(--ink);text-anchor:middle;pointer-events:none}
 .marker circle{fill:var(--ink);stroke:#0F1512;stroke-width:1.1}
 .marker text{font-family:var(--display);font-weight:800;font-size:6.5px;fill:#0F1512;text-anchor:middle}
@@ -187,7 +185,7 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
 
     <div class="board-wrap">
       <div class="board">
-        <svg id="board" viewBox="0 0 300 300" role="group" aria-label="Dartboard. Choose a segment to throw at it."></svg>
+        <svg id="board" viewBox="0 0 300 300" role="img" aria-label="Dartboard"></svg>
       </div>
     </div>
 
@@ -336,11 +334,6 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     if (d.r === 'M') return 'Miss';
     if (d.n === 25) return d.r === 'D' ? 'Bull' : '25';
     return d.r === 'S' ? String(d.n) : d.r + d.n;
-  }
-  function aimName(d) {
-    if (d.r === 'M') return 'Off the board';
-    if (d.n === 25) return d.r === 'D' ? 'Bull, 50' : 'Outer bull, 25';
-    return { S: 'Single ', D: 'Double ', T: 'Treble ' }[d.r] + d.n;
   }
   function same(a, b) { return a.r === b.r && a.n === b.n; }
   function kindOf(dt) { return dt.k || (dt.hit.r === 'M' ? 'off' : same(dt.aim, dt.hit) ? 'on' : 'near'); }
@@ -535,7 +528,7 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     var before = leftAfter(game.visits.slice(0, -1), game.target) - cv.darts.reduce(function (t, d) { return t + value(d.hit); }, 0);
     // Luck is random in every mode. The daily only shares its checkout number; the darts are yours.
     if (game.mode === 'nine' && game.thrown === 0) { nineStats().attempts++; game.attempt = nineStats().attempts; writeStore(); }
-    var land = scatter(at || aimPoint(aim), Math.random(), Math.random(), Math.random());
+    var land = scatter(at, Math.random(), Math.random(), Math.random());
     var hit = landing(land);
     var kind0 = game.mode === 'nine' ? null : routeKind(before, hit);
     cv.darts.push({ aim: aim, hit: hit, k: kind0, w: game.mode === 'nine' ? null : chartAim(before), p: { x: Math.round(land.x * 100) / 100, y: Math.round(land.y * 100) / 100 } });
@@ -608,7 +601,7 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
   }
 
   /* ---------- board ---------- */
-  var markersG, hiPath, svgEl, aimUI, reticle, loupe, loupeZoom, chip, chipRect, chipText;
+  var markersG, svgEl, aimUI, reticle, loupe, loupeZoom, chip, chipRect, chipText;
   var LOUPE_R = 40, ZOOM = 3.2;
   function el(tag, attrs, parent) {
     var e = document.createElementNS(NS, tag);
@@ -639,12 +632,7 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     var a = -90 + idx * 18;
     return { aim: { r: ring[0], n: ORDER[idx] }, d: sector(ring[1], ring[2], a - 9, a + 9) };
   }
-  function addSeg(parent, d, fill, aim) {
-    var p = el('path', { d: d, fill: fill, 'fill-rule': 'evenodd', class: 'seg', tabindex: '0', role: 'button', 'aria-label': aimName(aim) }, parent);
-    p.setAttribute('data-r', aim.r);
-    p.setAttribute('data-n', String(aim.n));
-    return p;
-  }
+  function addSeg(parent, d, fill) { el('path', { d: d, fill: fill, 'fill-rule': 'evenodd' }, parent); }
   function buildBoard() {
     var svg = svgEl = $('#board');
     var clip = el('clipPath', { id: 'loupeClip' }, el('defs', {}, svg));
@@ -658,12 +646,11 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
       var a = -90 + i * 18, dark = i % 2 === 0;
       RINGS.forEach(function (ring) {
         var fill = ring[0] === 'S' ? (dark ? '#1A1C1B' : '#E9DFC4') : (dark ? '#C8202F' : '#138A4A');
-        addSeg(g, sector(ring[1], ring[2], a - 9, a + 9), fill, { r: ring[0], n: n });
+        addSeg(g, sector(ring[1], ring[2], a - 9, a + 9), fill);
       });
     });
-    addSeg(g, circlePath(R.outer) + circlePath(R.bull), '#138A4A', { r: 'S', n: 25 });
-    addSeg(g, circlePath(R.bull), '#C8202F', { r: 'D', n: 25 });
-    hiPath = el('path', { class: 'aim-hi', 'fill-rule': 'evenodd', d: '' }, scene);
+    addSeg(g, circlePath(R.outer) + circlePath(R.bull), '#138A4A');
+    addSeg(g, circlePath(R.bull), '#C8202F');
     var nums = el('g', { 'aria-hidden': 'true' }, scene);
     ORDER.forEach(function (n, i) {
       var p = pt(139.5, -90 + i * 18);
@@ -721,7 +708,7 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     }
 
     // The crosshair sways around the finger or cursor. The dart goes where the crosshair is at the moment
-    // of release (touch) or press (mouse), then scatters on top of that. Keyboard throws skip the sway.
+    // of release (touch) or press (mouse), then scatters on top of that. There is no keyboard throwing.
     var cur = null, magnify = false, raf = 0, t0 = 0, ph = [0, 0, 0, 0];
     function swayOffset(now) {
       var t = (now - t0) / 1000, A = tuning.sway * MM, w = 2 * Math.PI * 0.55 * tuning.swaySpeed;
@@ -792,16 +779,6 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     });
     svg.addEventListener('pointercancel', function () { touchAiming = false; stopAim(); });
     svg.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') stopAim(); });
-
-    // Keyboard and screen readers: every segment is a focusable button.
-    function isSeg(t) { return t && t.classList && t.classList.contains('seg'); }
-    function aimOf(t) { return { r: t.getAttribute('data-r'), n: +t.getAttribute('data-n') }; }
-    svg.addEventListener('keydown', function (e) {
-      if ((e.key === 'Enter' || e.key === ' ') && isSeg(e.target)) { e.preventDefault(); throwAt(aimOf(e.target)); }
-    });
-    svg.addEventListener('click', function (e) { if (e.detail === 0 && isSeg(e.target)) throwAt(aimOf(e.target)); });
-    svg.addEventListener('focusin', function (e) { if (isSeg(e.target)) hiPath.setAttribute('d', e.target.getAttribute('d')); });
-    svg.addEventListener('focusout', function () { hiPath.setAttribute('d', ''); });
   }
 
   function renderMarkers(fresh) {
