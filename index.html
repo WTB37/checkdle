@@ -1,0 +1,1142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Checkdle · the daily darts checkout</title>
+<meta name="description" content="Checkdle: the daily darts checkout. Aim, drift, keep count.">
+<meta name="theme-color" content="#0F1512">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230F1512'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%23F3EEDF' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='none' stroke='%23F3EEDF' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='2.4' fill='%23D7263D'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F1512;--surface:#18211C;--line:#2A352E;--ink:#F3EEDF;--ink-2:#DCD6C6;--muted:#A7B0A9;--faint:#6B7A70;
+  --red:#D7263D;--on:#177A42;--drift:#F0B429;--wrong:#C8283C;--off:#2B332E;--good:#5BD48B;--bad:#FF8A8A;
+  --display:'Barlow Condensed','Arial Narrow',sans-serif;
+  --body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-text-size-adjust:100%}
+body{-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+[hidden]{display:none!important}
+[tabindex="-1"]:focus{outline:none}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.app{max-width:420px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:8px 16px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+main{flex:1;display:flex;flex-direction:column}
+.top{height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.icon-btn{width:44px;height:44px;padding:0;border:0;border-radius:10px;background:transparent;display:grid;place-items:center;color:var(--ink)}
+.icon-btn:hover{background:#1A231E}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:.08em;line-height:1}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.target{margin-top:8px;min-height:80px;padding:12px 16px 12px 18px;border-radius:14px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.target-main{display:flex;flex-direction:column;gap:6px}
+.target-num{font-family:var(--display);font-weight:800;font-size:50px;line-height:.85;font-variant-numeric:tabular-nums}
+.left{display:flex;align-items:center;gap:10px}
+.left-box{width:64px;height:48px;border-radius:10px;border:2px dashed #4A5750;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:30px;color:var(--muted);font-variant-numeric:tabular-nums}
+.left-box.won{border-color:#2E6B47;color:var(--good)}
+.left-box.lost{border-color:#7A3A40;color:var(--bad)}
+
+.msg{margin:10px 0 0;min-height:20px;font-size:14px;line-height:20px;font-weight:500;text-align:center;color:var(--muted)}
+.msg.warn{color:var(--drift)}.msg.win{color:var(--good)}.msg.lose{color:var(--bad)}
+
+.log{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.row{display:grid;grid-template-columns:40px repeat(3,minmax(0,1fr));gap:8px;height:40px}
+.tag{display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.tag.bust{font-size:15px;color:var(--bad)}
+.tile{position:relative;min-width:0;border-radius:10px;border:2px solid #232C27;background:#141B17;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.tile .v{font-family:var(--display);font-weight:700;font-size:21px;line-height:1}
+.tile .c{font-size:11px;font-weight:600;line-height:1.2;white-space:nowrap}
+.tile svg{position:absolute;top:4px;right:5px}
+.tile.next{border-style:dashed;border-color:#8E9A92}
+.tile.on{background:var(--on);border-color:var(--on);color:#fff}.tile.on .c{color:#E3F5EA}
+.tile.near{background:var(--drift);border-color:var(--drift);color:#1A1206}.tile.near .c{color:#4A3608}
+.tile.wrong{background:var(--wrong);border-color:var(--wrong);color:#fff}.tile.wrong .c{color:#FFE3E6}
+.tile.off{background:var(--off);border-color:var(--off);color:#C2CBC5}.tile.off .c{color:var(--muted)}
+.tile.fresh{animation:pop .35s ease-out}
+@keyframes pop{0%{transform:scale(.86)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+
+.board-wrap{align-self:center;width:min(100vw,440px);margin:auto 0 0;padding-top:8px}
+@supports (height:100dvh){.board-wrap{width:min(100vw,clamp(220px,calc(100dvh - 428px),520px))}}
+.board{position:relative;width:100%;aspect-ratio:1/1}
+.board svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible;cursor:none;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.seg:focus,.seg:focus-visible{outline:none}
+.aim-hi{fill:rgba(255,255,255,.3);stroke:#fff;stroke-width:.9;pointer-events:none}
+.num{font-family:var(--display);font-weight:700;font-size:14px;fill:var(--ink);text-anchor:middle;pointer-events:none}
+.marker circle{fill:var(--ink);stroke:#0F1512;stroke-width:1.1}
+.marker text{font-family:var(--display);font-weight:800;font-size:6.5px;fill:#0F1512;text-anchor:middle}
+#aimUI{pointer-events:none}
+.loupe-bg{fill:#0A0E0C}
+.loupe-ring{fill:none;stroke:var(--ink);stroke-width:2}
+.loupe-cross{fill:none;stroke:#fff;stroke-width:1.2;stroke-linecap:round}
+.aim-chip rect{fill:var(--ink)}
+.aim-chip text{font-family:var(--display);font-weight:800;font-size:11px;fill:#0F1512;text-anchor:middle}
+.marker .drop{animation:drop .32s cubic-bezier(.2,.9,.3,1.25);transform-box:fill-box;transform-origin:center}
+@keyframes drop{from{transform:scale(2.4);opacity:0}to{transform:scale(1);opacity:1}}
+
+.foot{margin-top:12px;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;color:var(--muted)}
+.foot strong{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.foot.two .btn{flex:1 1 0;min-width:0;padding:0 10px}
+.btn.small{height:44px;font-size:17px;letter-spacing:.1em}
+.stats.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.help-note{margin:14px 0 0;font-size:15px;line-height:1.45;color:var(--ink-2)}
+.help-note strong{color:var(--ink);font-weight:600}
+
+.btn{height:52px;border:0;border-radius:10px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.12em;text-transform:uppercase}
+.btn.primary{background:var(--red);color:#fff}
+.btn.primary:hover{background:#C21F35}
+.btn.ghost{height:44px;font-size:17px;letter-spacing:.1em;background:#1E2722;border:1px solid #2C3731;color:var(--ink)}
+.btn.ghost:hover{background:#25302A}
+.btn.block{width:100%}
+.btn.block.ghost{height:48px}
+
+dialog{width:min(420px,100vw);max-width:100vw;max-height:92vh;padding:0;border:1px solid var(--line);border-radius:16px;background:var(--bg);color:var(--ink);overflow:auto}
+dialog::backdrop{background:rgba(4,7,5,.78)}
+@media (max-width:480px){
+  dialog{width:100vw;height:100vh;max-height:100vh;margin:0;border:0;border-radius:0}
+  @supports (height:100dvh){dialog{height:100dvh;max-height:100dvh}}
+}
+.sheet{min-height:100%;padding:8px 20px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+.sheet-head{height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.sheet-head .spacer{width:44px}
+.sheet-title{margin:0;font-family:var(--display);font-weight:800;font-size:30px;letter-spacing:.06em;text-transform:uppercase;line-height:1}
+.lead{margin:6px 0 0;font-size:17px;line-height:1.4;font-weight:500}
+.rules{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.rules li{display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.45;color:var(--ink-2)}
+.rules li strong{color:var(--ink);font-weight:600}
+.badge{flex-shrink:0;width:26px;height:26px;border-radius:13px;background:var(--red);color:#fff;font-family:var(--display);font-weight:700;font-size:16px;display:grid;place-items:center}
+.card{margin-top:14px;padding:16px 18px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.card-title{display:block;margin:0 0 12px}
+.legend{display:flex;flex-direction:column;gap:10px}
+.legend .card-title{margin:0}
+.legend-row{display:flex;align-items:center;gap:14px;font-size:15px;line-height:1.4}
+.legend-row p{margin:0}
+.legend .tile{width:72px;height:44px;flex-shrink:0}
+.legend .tile .c{font-size:10px}
+
+.hero{margin-top:10px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.hero h2{margin:0;font-family:var(--display);font-weight:800;font-size:60px;line-height:.95;letter-spacing:.03em;text-transform:uppercase}
+.hero p{margin:0;font-size:17px;font-weight:500;color:var(--ink-2)}
+.share-card{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.squares{display:flex;flex-direction:column;gap:5px}
+.sq-row{display:flex;gap:5px;align-items:center}
+.sq{width:30px;height:30px;border-radius:6px;display:grid;place-items:center}
+.sq.on{background:var(--on);color:#fff}.sq.near{background:var(--drift);color:#1A1206}.sq.wrong{background:var(--wrong);color:#fff}.sq.off{background:var(--off)}
+.sq-bust{margin-left:4px;font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--bad)}
+.share-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right}
+.big{font-family:var(--display);font-weight:800;font-size:54px;line-height:.9;font-variant-numeric:tabular-nums}
+.share-cap{font-size:14px;color:var(--muted)}
+.count-row{display:grid;grid-template-columns:24px repeat(3,minmax(0,1fr));gap:8px;align-items:start}
+.count-row+.count-row{margin-top:10px}
+.vno{font-family:var(--display);font-weight:700;font-size:18px;line-height:38px;color:var(--faint)}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.chip{width:100%;height:38px;border-radius:8px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:20px}
+.chip.on{background:var(--on);color:#fff}.chip.near{background:var(--drift);color:#1A1206}.chip.wrong{background:var(--wrong);color:#fff}.chip.off{background:var(--off);color:#C2CBC5}
+.cell small{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cell small.out{color:var(--good);font-weight:600}.cell small.bust{color:var(--bad);font-weight:600}
+.stats{margin:16px 0 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;text-align:center}
+.stats div{display:flex;flex-direction:column-reverse;gap:2px}
+.stats dt{font-size:12px;color:var(--muted)}
+.stats dd{margin:0;font-family:var(--display);font-weight:700;font-size:30px;line-height:1}
+.actions{margin-top:auto;padding-top:20px;display:flex;flex-direction:column;gap:10px}
+.next{margin:0;text-align:center;font-size:14px;color:var(--muted)}
+.next b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+
+.toast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translate(-50%,16px);max-width:calc(100vw - 32px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:10}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="icon-btn" id="helpBtn" type="button" aria-label="How to play">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.5"/><path d="M12 17h.01"/></svg>
+    </button>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11.5" fill="none" stroke="#F3EEDF" stroke-width="2"/><circle cx="13" cy="13" r="6.5" fill="none" stroke="#F3EEDF" stroke-width="2"/><circle cx="13" cy="13" r="2.6" fill="#D7263D"/></svg>
+      <h1 style="margin:0;font:inherit;letter-spacing:inherit">CHECKDLE</h1>
+    </div>
+    <button class="icon-btn" id="statsBtn" type="button" aria-label="Statistics">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 20v-7"/><path d="M12 20V5"/><path d="M19 20v-10"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="target" aria-label="Today's checkout">
+      <div class="target-main">
+        <span class="eyebrow" id="eyebrow">Checkout</span>
+        <span class="target-num" id="targetNum">–</span>
+      </div>
+      <div class="left">
+        <span class="eyebrow">Left</span>
+        <span class="left-box" id="leftBox" aria-label="Score left is hidden">?</span>
+      </div>
+    </section>
+
+    <p class="msg" id="msg" aria-live="polite"></p>
+
+    <div class="log" id="log" aria-label="Your darts"></div>
+
+    <div class="board-wrap">
+      <div class="board">
+        <svg id="board" viewBox="0 0 300 300" role="group" aria-label="Dartboard. Choose a segment to throw at it."></svg>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span id="footText">Darts thrown <strong id="count">0 / 9</strong></span>
+      <button class="btn ghost" id="footA" type="button" hidden></button>
+      <button class="btn primary small" id="footB" type="button" hidden></button>
+    </div>
+  </main>
+</div>
+
+<dialog id="help" aria-labelledby="helpTitle">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 class="sheet-title" id="helpTitle" tabindex="-1" autofocus>How to play</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Close" style="margin-right:-10px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="lead">Check out the day's score in nine darts or fewer. Fewest darts wins.</p>
+    <ol class="rules">
+      <li><span class="badge">1</span><span><strong>Hold, aim, let go.</strong> Touch the board and slide your finger. A magnifier shows where the dart is headed. Let go to throw. On a computer, point and click.</span></li>
+      <li><span class="badge">2</span><span><strong>The crosshair sways.</strong> It wanders around your finger or cursor. Time your release.</span></li>
+      <li><span class="badge">3</span><span><strong>Darts scatter.</strong> Each dart lands somewhere near the crosshair, with fresh luck every throw. Big singles are safe. Trebles, doubles and the bull often slip into the next bed.</span></li>
+      <li><span class="badge">4</span><span><strong>Your score left stays hidden.</strong> Keep count in your head.</span></li>
+      <li><span class="badge">5</span><span><strong>Three darts a visit, three visits.</strong> Go below zero, leave 1, or reach zero without a double and it's bust: back to your score from the start of that visit.</span></li>
+    </ol>
+    <section class="card legend">
+      <h3 class="eyebrow card-title">Reading the tiles</h3>
+      <div class="legend-row">
+        <div class="tile on"><span class="v">T20</span><span class="c">on route</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+        <p><strong>On the route.</strong> The field the checkout chart calls for.</p>
+      </div>
+      <div class="legend-row">
+        <div class="tile near"><span class="v">20</span><span class="c">wanted T20</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18L18 6"/><path d="M9 6h9v9"/></svg></div>
+        <p><strong>Right number, wrong ring.</strong> 100 left and you hit 20, not treble 20.</p>
+      </div>
+      <div class="legend-row">
+        <div class="tile wrong"><span class="v">20</span><span class="c">wanted T19</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></div>
+        <p><strong>Wrong number.</strong> 99 left and you hit 20.</p>
+      </div>
+      <div class="legend-row">
+        <div class="tile off"><span class="v">Miss</span><span class="c">aimed D8</span></div>
+        <p><strong>Off the board.</strong> Scores nothing.</p>
+      </div>
+    </section>
+    <p class="help-note"><strong>Finished the daily?</strong> Go for a nine-darter: 501 in nine perfect darts.</p>
+    <div class="actions">
+      <button class="btn primary block" type="button" data-close>Step up to the oche</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="result" aria-labelledby="resultTitle"></dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- constants ---------- */
+  var ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+  var EPOCH = Date.UTC(2026, 0, 1);        // puzzle No. 1
+  var KEY = 'checkdle:v1';
+  var VISITS = 3;
+  var NS = 'http://www.w3.org/2000/svg';
+  var $ = function (s) { return document.querySelector(s); };
+
+  /* ---------- storage (always guarded) ---------- */
+  function readStore() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      var s = raw ? JSON.parse(raw) : null;
+      if (s && typeof s === 'object' && s.games && typeof s.games === 'object') return s;
+    } catch (e) {}
+    return { games: {}, seenHelp: false };
+  }
+  function writeStore() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+  var store = readStore();
+  function nineStats() {
+    if (!store.nine || typeof store.nine !== 'object') store.nine = { attempts: 0, best: 0, nines: 0 };
+    return store.nine;
+  }
+
+  /* ---------- nine-darter maths ---------- */
+  // REACH[m][s] is true when a score of s can be made with at most m darts.
+  var DART_VALUES = (function () {
+    var s = {};
+    for (var n = 1; n <= 20; n++) { s[n] = 1; s[2 * n] = 1; s[3 * n] = 1; }
+    s[25] = 1; s[50] = 1;
+    return Object.keys(s).map(Number);
+  })();
+  var FINISH_DOUBLES = [50];
+  for (var dn = 1; dn <= 20; dn++) FINISH_DOUBLES.push(2 * dn);
+  var REACH = [[true]];
+  (function () {
+    for (var m = 1; m <= 9; m++) {
+      var prev = REACH[m - 1], row = prev.slice();
+      for (var s = 0; s < prev.length; s++) {
+        if (!prev[s]) continue;
+        for (var k = 0; k < DART_VALUES.length; k++) if (s + DART_VALUES[k] <= 501) row[s + DART_VALUES[k]] = true;
+      }
+      REACH.push(row);
+    }
+  })();
+  // Can `left` still be checked out (ending on a double) with `darts` darts?
+  function canFinish(left, darts) {
+    if (darts < 1 || left < 2) return false;
+    var reach = REACH[darts - 1];
+    return FINISH_DOUBLES.some(function (d) { return left - d >= 0 && !!reach[left - d]; });
+  }
+  // Daily targets: the 60 checkouts that need all three darts (99, 102 ... 167, 170).
+  var CHECKOUTS = [];
+  for (var c = 2; c <= 170; c++) if (canFinish(c, 3) && !canFinish(c, 2)) CHECKOUTS.push(c);
+
+  /* ---------- daily number + seeded randomness ---------- */
+  function todayNo() {
+    var d = new Date();
+    return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - EPOCH) / 864e5) + 1;
+  }
+  function rand(seed, i) {
+    var t = (Math.imul(seed | 0, 0x9E3779B1) + Math.imul((i | 0) + 1, 0x6D2B79F5)) | 0;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  function pickTarget(seed) { return CHECKOUTS[Math.floor(rand(seed, 777777) * CHECKOUTS.length)]; }
+  // Daily: each block of 60 days is a fixed shuffle of all 60 checkouts, so none repeats until every one has appeared.
+  function shuffled(block) {
+    var a = CHECKOUTS.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rand(block, i) * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function dailyTarget(no) {
+    var n = CHECKOUTS.length, block = Math.floor((no - 1) / n), a = shuffled(block);
+    // Where two blocks meet, never the same checkout two days running.
+    if (a[0] === shuffled(block - 1)[n - 1]) { a[0] = a[1]; a[1] = shuffled(block - 1)[n - 1]; }
+    return a[((no - 1) % n + n) % n];
+  }
+
+  /* ---------- darts ---------- */
+  function value(d) { return d.r === 'M' ? 0 : d.n * (d.r === 'T' ? 3 : d.r === 'D' ? 2 : 1); }
+  function label(d) {
+    if (d.r === 'M') return 'Miss';
+    if (d.n === 25) return d.r === 'D' ? 'Bull' : '25';
+    return d.r === 'S' ? String(d.n) : d.r + d.n;
+  }
+  function aimName(d) {
+    if (d.r === 'M') return 'Off the board';
+    if (d.n === 25) return d.r === 'D' ? 'Bull, 50' : 'Outer bull, 25';
+    return { S: 'Single ', D: 'Double ', T: 'Treble ' }[d.r] + d.n;
+  }
+  function same(a, b) { return a.r === b.r && a.n === b.n; }
+  function kindOf(dt) { return dt.k || (dt.hit.r === 'M' ? 'off' : same(dt.aim, dt.hit) ? 'on' : 'near'); }
+
+  // Regulation board proportions, in mm from the centre: bull 6.35, outer bull 15.9,
+  // treble ring 99–107, double ring 162–170. Scaled so the double ring ends at 128 of the 150 drawing radius.
+  var MM = 128 / 170;
+  var R = { bull: 6.35 * MM, outer: 15.9 * MM, tIn: 99 * MM, tOut: 107 * MM, dIn: 162 * MM, dOut: 170 * MM };
+  var RINGS = [['S', R.outer, R.tIn], ['T', R.tIn, R.tOut], ['S', R.tOut, R.dIn], ['D', R.dIn, R.dOut]];
+
+  /* ---------- scatter: where a dart lands ---------- */
+  // A dart lands at the exact aim point plus a random offset drawn from a 2D normal (bell curve)
+  // distribution. The board's real geometry then decides what it scores.
+  //   spread: standard deviation of the offset, in mm on a real board
+  //   shape:  1 = round; above 1 = more up-and-down error than sideways (same overall size)
+  //   wild:   % chance of a bad throw, whose spread is multiplied by wildX
+  var DEFAULT_TUNING = { spread: 5.5, shape: 1.15, wild: 2.5, wildX: 2, sway: 5, swaySpeed: 0.6 };
+  var tuning = Object.assign({}, DEFAULT_TUNING);
+  function gauss2(u1, u2) {
+    var m = Math.sqrt(-2 * Math.log(1 - u1));
+    return [m * Math.cos(2 * Math.PI * u2), m * Math.sin(2 * Math.PI * u2)];
+  }
+  // u1..u3 are uniform random numbers in [0,1).
+  function scatter(p, u1, u2, u3) {
+    var z = gauss2(u1, u2);
+    var s = tuning.spread * (u3 * 100 < tuning.wild ? tuning.wildX : 1);
+    var k = Math.sqrt(tuning.shape);
+    return { x: p.x + z[0] * (s / k) * MM, y: p.y + z[1] * (s * k) * MM };
+  }
+  function numberAt(x, y) {
+    var deg = Math.atan2(y - 150, x - 150) * 180 / Math.PI;
+    return ORDER[Math.floor(((((deg + 99) % 360) + 360) % 360) / 18) % 20];
+  }
+  function landing(p) {
+    var s = segAt(p.x, p.y);
+    return s ? s.aim : { r: 'M', n: numberAt(p.x, p.y) };
+  }
+  // The middle of a segment: used for keyboard throws and the test bot.
+  function aimPoint(aim) {
+    if (aim.n === 25) return aim.r === 'D' ? { x: 150, y: 150 } : { x: 150, y: 150 - (R.bull + R.outer) / 2 };
+    var a = (-90 + ORDER.indexOf(aim.n) * 18) * Math.PI / 180;
+    var r = aim.r === 'T' ? (R.tIn + R.tOut) / 2 : aim.r === 'D' ? (R.dIn + R.dOut) / 2 : (R.tOut + R.dIn) / 2;
+    return { x: 150 + r * Math.cos(a), y: 150 + r * Math.sin(a) };
+  }
+
+  /* ---------- game state ---------- */
+  var game;
+  /* ---------- checkout chart ---------- */
+  // Built once from every 1-, 2- and 3-dart finish: fewest darts first, then the cheapest route, where
+  // favourite doubles (D20, D16, then D8, D18, D12 ...) and big trebles as set-up darts cost the least.
+  var DARTS = [];
+  for (var dn0 = 1; dn0 <= 20; dn0++) DARTS.push({ r: 'S', n: dn0 }, { r: 'D', n: dn0 }, { r: 'T', n: dn0 });
+  DARTS.push({ r: 'S', n: 25 }, { r: 'D', n: 25 });
+  var DOUBLE_RANK = { 20: 0, 16: 0, 8: 1, 18: 1, 12: 1, 10: 2, 14: 3, 4: 3, 6: 3, 25: 3, 19: 4, 17: 4, 15: 4, 13: 4, 11: 4, 9: 5, 7: 5, 5: 5, 3: 5, 2: 6, 1: 7 };
+  function setupCost(d) {
+    if (d.r === 'T') return d.n === 20 ? 0 : d.n === 19 ? 1 : d.n === 18 ? 2 : d.n === 17 ? 3 : 4 + (20 - d.n) * 0.6;
+    if (d.r === 'S') return d.n === 25 ? 6 : 5 + (20 - d.n) * 0.15;
+    return d.n === 25 ? 9 : 8;
+  }
+  var CHART = {};   // score -> { route: [darts], cost }
+  (function () {
+    function offer(route, cost) {
+      var total = route.reduce(function (t, d) { return t + value(d); }, 0);
+      var cur = CHART[total];
+      if (!cur || route.length < cur.route.length || (route.length === cur.route.length && cost < cur.cost)) CHART[total] = { route: route, cost: cost };
+    }
+    DARTS.forEach(function (fin) {
+      if (fin.r !== 'D') return;
+      var fc = 3 * DOUBLE_RANK[fin.n];
+      offer([fin], fc);
+      DARTS.forEach(function (a) {
+        offer([a, fin], setupCost(a) + fc);
+        DARTS.forEach(function (b) { offer([a, b, fin], setupCost(a) * 1.01 + setupCost(b) + fc); });   // cheaper dart goes first
+      });
+    });
+  })();
+  // Published checkout charts, merged from two public tables (mydartpfeil.com/en/blogs/tipps/dart-checkouts and
+  // dartbase.com/outchart1.htm). Every listed route is accepted; the first is the one the game treats as THE route.
+  // Each route is checked (adds up, ends on a double, at most 3 darts) before it is used.
+  var PUBLISHED = {170:'T20 T20 D25',167:'T20 T19 D25',164:'T20 T18 D25|T19 T19 D25',161:'T20 T17 D25',160:'T20 T20 D20',158:'T20 T20 D19',157:'T20 T19 D20',156:'T20 T20 D18',155:'T20 T19 D19',154:'T20 T18 D20|T19 T19 D20',153:'T20 T19 D18',152:'T20 T20 D16',151:'T20 T17 D20|T19 T18 D20',150:'T20 T18 D18|T19 T19 D18',149:'T20 T19 D16',148:'T20 T20 D14|T19 T17 D20|T20 T16 D20',147:'T20 T17 D18|T19 T18 D18',146:'T20 T18 D16|T19 T19 D16',145:'T20 T19 D14|T20 T15 D20',144:'T20 T20 D12|T18 T18 D18|T20 T16 D18',143:'T20 T17 D16|T19 T18 D16',142:'T20 T14 D20|T19 T19 D14|T20 T18 D14',141:'T20 T19 D12|T17 T18 D18',140:'T20 T20 D10',139:'T20 T13 D20|T20 T19 D11|T19 T14 D20|T19 T18 D14',138:'T20 T18 D12|T19 T19 D12',137:'T20 T19 D10',136:'T20 T20 D8',135:'T20 T17 D12|S25 T20 D25',134:'T20 T16 D13|T20 T14 D16',133:'T20 T19 D8',132:'T20 T16 D12|S25 T19 D25',131:'T19 T14 D16|T20 T13 D16',130:'T20 T20 D5',129:'T19 T16 D12|T20 T19 D6|T19 T20 D6',128:'T18 T14 D16|T20 T18 D7|T18 T18 D10',127:'T20 T17 D8',126:'T19 T19 D6',125:'T18 T19 D7|T20 T15 D10|S25 T20 D20',124:'T20 T14 D11',123:'T19 T16 D9',122:'T18 T18 D7',121:'T20 T11 D14|T17 T20 D5',120:'T20 S20 D20',119:'T19 T12 D13',118:'T20 S18 D20',117:'T19 S20 D20|T20 S17 D20',116:'T19 S19 D20|T20 S16 D20',115:'T20 S15 D20|T19 S18 D20',114:'T19 S17 D20|T20 S14 D20|T18 S20 D20',113:'T19 S16 D20|T20 S13 D20',112:'T20 T12 D8|T20 S20 D16|T18 S18 D20|T19 S19 D18',111:'T19 S14 D20|T20 S11 D20|T20 S19 D16|T17 S20 D20',110:'T20 T10 D10|T20 D25|T20 S18 D16',109:'T20 S9 D20|T20 S17 D16|T19 S20 D16',108:'T20 S16 D16|T20 S8 D20|T19 S19 D16|T18 S18 D18|T17 S17 D20',107:'T19 T10 D10|T19 D25|T20 S15 D16|T19 S18 D16',106:'T20 T10 D8|T20 S14 D16|T20 S6 D20|T20 S10 D18',105:'T20 S13 D16',104:'T19 S15 D16|T18 D25|T20 S12 D16|T18 S18 D16',103:'T19 S10 D18|T19 S6 D20|T20 S11 D16|T20 S3 D20|T20 S19 D12',102:'T20 S10 D16|T20 S6 D18',101:'T20 S9 D16|T17 D25|T19 S12 D16',100:'T20 D20',99:'T19 S10 D16|T19 S6 D18',98:'T20 D19',97:'T19 D20',96:'T20 D18',95:'T19 D19|S25 T20 D5',94:'T18 D20|S25 T19 D6',93:'T19 D18|S25 T18 D7',92:'T20 D16|S25 T17 D8',91:'T17 D20|S25 T16 D9|D25 S9 D16',90:'T20 D15|T18 D18',89:'T19 D16',88:'T20 D14',87:'T17 D18',86:'T18 D16',85:'T15 D20|T19 D14',84:'T20 D12|T16 D18',83:'T17 D16',82:'D25 D16|T14 D20|S25 S17 D20',81:'T19 D12|T15 D18',80:'T20 D10',79:'T19 D11|T13 D20',78:'T18 D12',77:'T19 D10',76:'T20 D8|T16 D14',75:'T17 D12',74:'T14 D16',73:'T19 D8',72:'T16 D12|T20 D6|T12 D18',71:'T13 D16',70:'T18 D8|T20 D5|T10 D20',69:'T19 D6|T15 D12',68:'T16 D10|T20 D4|T18 D7|T12 D16',67:'T9 D20|T17 D8',66:'T10 D18|T16 D9|T18 D6|T14 D12',65:'T11 D16|T19 D4|T15 D10|S25 D20',64:'T16 D8|T14 D11',63:'T13 D12|T17 D6|T9 D18',62:'T10 D16|T12 D13',61:'T15 D8|T7 D20|T11 D14|S25 D18',60:'S20 D20',59:'S19 D20',58:'S18 D20',57:'S17 D20',56:'T16 D4',55:'S15 D20',54:'S14 D20',53:'S13 D20',52:'S12 D20',51:'S11 D20|S19 D16',50:'S10 D20|S18 D16',49:'S9 D20|S17 D16',48:'S16 D16|S8 D20',47:'S7 D20|S15 D16',46:'S6 D20|S10 D18',45:'S13 D16|S19 D13',44:'S12 D16|S4 D20',43:'S3 D20|S11 D16',42:'S10 D16|S6 D18',41:'S9 D16'};
+  var ROUTES = {};   // score -> every accepted route, shortest first
+  (function () {
+    function dartOf(t) { return { r: t[0], n: +t.slice(1) }; }
+    Object.keys(PUBLISHED).forEach(function (k) {
+      var list = [];
+      PUBLISHED[k].split('|').forEach(function (str) {
+        var route = str.split(' ').map(dartOf);
+        var sum = route.reduce(function (a, d) { return a + value(d); }, 0);
+        if (sum === +k && route[route.length - 1].r === 'D' && route.length <= 3) list.push(route);
+      });
+      if (CHART[k] && (!list.length || CHART[k].route.length < list[0].length)) list.unshift(CHART[k].route);
+      // Shortest first, otherwise the order the sources give them.
+      list = list.map(function (r, i) { return { r: r, i: i }; })
+        .sort(function (x, y) { return x.r.length - y.r.length || x.i - y.i; })
+        .map(function (x) { return x.r; });
+      if (list.length) { ROUTES[k] = list; CHART[k] = { route: list[0], cost: 0 }; }
+    });
+  })();
+  // What the chart says to throw next from `left`. With no finish on (e.g. 159), set up the cheapest one.
+  function chartAim(left) {
+    if (CHART[left]) return CHART[left].route[0];
+    var best = null, bestCost = Infinity;
+    DARTS.forEach(function (d) {
+      if (d.r === 'D') return;
+      var c = CHART[left - value(d)];
+      if (!c) return;
+      var cost = 2 * setupCost(d) + c.route.length * 100 + c.cost;   // favour scoring big, as pros do
+      if (cost < bestCost) { bestCost = cost; best = d; }
+    });
+    return best || { r: 'T', n: 20 };
+  }
+
+  // How a dart compares with what the checkout chart calls for at `left`:
+  // on = the first dart of any published route for that score, near = the right number in the wrong ring,
+  // wrong = a different number, off = missed the board.
+  function routeKind(left, hit) {
+    if (hit.r === 'M') return 'off';
+    var firsts = (ROUTES[left] || [CHART[left] ? CHART[left].route : [chartAim(left)]]).map(function (r) { return r[0]; });
+    if (left - value(hit) === 0 && hit.r === 'D') return 'on';
+    if (firsts.some(function (d) { return same(d, hit); })) return 'on';
+    // Setting up a favourite double (D20, D16, D18, D12, D10, D8) is a sound route too, not a mistake.
+    var rest = left - value(hit), shortest = ROUTES[left] ? ROUTES[left][0].length : CHART[left] ? CHART[left].route.length : 2;
+    if (shortest >= 2 && (rest === 40 || rest === 32 || rest === 24 || rest === 16 || rest === 36 || rest === 20)) return 'on';
+    return firsts.some(function (d) { return d.n === hit.n; }) ? 'near' : 'wrong';
+  }
+  function dailyGame() {
+    var no = todayNo();
+    var saved = store.games[no], target = dailyTarget(no);
+    // A save for a different target (the pool changed) or from before landing points were stored: today starts fresh.
+    if (saved && !(saved.target === target && Array.isArray(saved.visits) && saved.visits.every(function (v) { return v.darts.every(function (d) { return d.p && d.k; }); }))) {
+      delete store.games[no];
+      saved = null;
+    }
+    return {
+      mode: 'daily', no: no, target: target,
+      visits: saved ? saved.visits : [],
+      thrown: saved && saved.thrown ? saved.thrown : 0
+    };
+  }
+  function nineGame() {
+    return { mode: 'nine', no: null, target: 501, visits: [], thrown: 0, failed: false, attempt: nineStats().attempts + 1 };
+  }
+  function dailyDone() { var g = store.games[todayNo()]; return !!(g && g.done); }
+  function practiceGame() {
+    return { mode: 'practice', no: null, target: pickTarget((Math.random() * 2147483647) | 0), visits: [], thrown: 0 };
+  }
+  function leftAfter(visits, target) {
+    var left = target;
+    visits.forEach(function (v) {
+      if (v.bust) return;
+      v.darts.forEach(function (d) { left -= value(d.hit); });
+    });
+    return left;
+  }
+  function status(g) {
+    var left = leftAfter(g.visits, g.target);
+    var last = g.visits[g.visits.length - 1];
+    var won = left === 0 && !!last && !last.bust;
+    var closed = !last || last.bust || last.darts.length >= 3;
+    var lost = !won && (!!g.failed || (g.visits.length >= VISITS && closed));
+    return { left: left, won: won, lost: lost, done: won || lost, open: !closed && !won && !g.failed, last: last };
+  }
+  function dartsUsed(g) { return g.visits.reduce(function (t, v) { return t + v.darts.length; }, 0); }
+  function nextSlot(g) {
+    var st = status(g);
+    if (st.done) return null;
+    return st.open ? { v: g.visits.length - 1, d: st.last.darts.length } : { v: g.visits.length, d: 0 };
+  }
+  function persist() {
+    if (game.mode !== 'daily') return;
+    var st = status(game);
+    store.games[game.no] = {
+      target: game.target, visits: game.visits, thrown: game.thrown,
+      done: st.done, won: st.won, darts: dartsUsed(game), left: st.left
+    };
+    writeStore();
+  }
+
+  /* ---------- throwing ---------- */
+  var busy = false;
+  function throwAt(aim, at) {
+    if (busy) return;
+    var st = status(game);
+    if (st.done) return;
+    busy = true;
+    setTimeout(function () { busy = false; }, 160);
+
+    var cv;
+    if (st.open) cv = game.visits[game.visits.length - 1];
+    else { cv = { bust: false, darts: [] }; game.visits.push(cv); }
+
+    var before = leftAfter(game.visits.slice(0, -1), game.target) - cv.darts.reduce(function (t, d) { return t + value(d.hit); }, 0);
+    // Luck is random in every mode. The daily only shares its checkout number; the darts are yours.
+    if (game.mode === 'nine' && game.thrown === 0) { nineStats().attempts++; game.attempt = nineStats().attempts; writeStore(); }
+    var land = scatter(at || aimPoint(aim), Math.random(), Math.random(), Math.random());
+    var hit = landing(land);
+    var kind0 = game.mode === 'nine' ? null : routeKind(before, hit);
+    cv.darts.push({ aim: aim, hit: hit, k: kind0, w: game.mode === 'nine' ? null : chartAim(before), p: { x: Math.round(land.x * 100) / 100, y: Math.round(land.y * 100) / 100 } });
+    game.thrown++;
+
+    var left = before - value(hit);
+    var msg, kind = 'info';
+    if (left < 0 || left === 1 || (left === 0 && hit.r !== 'D')) {
+      cv.bust = true;
+      msg = 'Bust! Back to your score from the start of this visit.';
+      kind = 'warn';
+    } else if (left === 0) {
+      msg = 'Game shot! Out in ' + dartsUsed(game) + ' darts.';
+      kind = 'win';
+    } else {
+      msg = outcome(aim, hit);
+    }
+    if (game.mode === 'nine') {
+      var lastDart = cv.darts[cv.darts.length - 1];
+      lastDart.k = hit.r === 'M' ? 'off'
+        : (cv.bust || !canFinish(left, 9 - game.thrown)) ? 'wrong' : same(aim, hit) ? 'on' : 'near';
+      var ns = nineStats();
+      if (kind === 'win') {
+        msg = 'Nine-darter! A perfect leg.';
+        ns.best = 9;
+        ns.nines = (ns.nines || 0) + 1;
+      } else if (cv.bust || !canFinish(left, 9 - game.thrown)) {
+        game.failed = true;
+        var perfect = game.thrown - 1;
+        ns.best = Math.max(ns.best || 0, perfect);
+        msg = (cv.bust ? 'Bust.' : same(aim, hit) ? label(hit) + ' leaves no nine-dart finish.' : label(hit) + ' instead of ' + label(aim) + '.') +
+          ' Gone after ' + perfect + ' perfect.';
+        kind = 'lose';
+      } else {
+        ns.best = Math.max(ns.best || 0, game.thrown);
+        msg = label(hit) + '. Perfect so far: ' + game.thrown + ' of 9.';
+        kind = 'win';
+      }
+      writeStore();
+    }
+    var after = status(game);
+    if (after.lost && game.mode !== 'nine') {
+      msg = (cv.bust ? 'Bust, and out of darts. ' : 'Out of darts. ') + 'You were on ' + after.left + '.';
+      kind = 'lose';
+    }
+    persist();
+    render(true, msg, kind);
+    if (after.done && (game.mode !== 'nine' || after.won)) setTimeout(openResult, 1200);
+  }
+  function outcome(aim, hit) {
+    if (aim.r === 'M') return hit.r === 'M' ? 'Off the board, as aimed.' : label(hit) + ', drifted onto the board.';
+    if (hit.r === 'M') return 'Off the board. You aimed at ' + label(aim) + '.';
+    if (same(aim, hit)) return label(hit) + ', right where you aimed.';
+    return label(hit) + ', drifted from ' + label(aim) + '.';
+  }
+  function restingMessage() {
+    var st = status(game);
+    if (game.mode === 'nine') {
+      if (st.won) return ['Nine-darter! A perfect leg.', 'win'];
+      if (st.lost) return ['The nine’s gone after ' + (game.thrown - 1) + ' perfect.', 'lose'];
+      if (game.thrown === 0) return ['501 in nine perfect darts. Your best: ' + (nineStats().best || 0) + ' of 9.', 'info'];
+      return ['Perfect so far: ' + game.thrown + ' of 9.', 'win'];
+    }
+    if (st.won) return ['Game shot! Out in ' + dartsUsed(game) + ' darts.', 'win'];
+    if (st.lost) return ['Out of darts. You were on ' + st.left + '.', 'lose'];
+    var n = nextSlot(game);
+    var hint = window.matchMedia && window.matchMedia('(pointer: coarse)').matches ? 'Hold to aim, let go to throw.' : 'Click where you aim.';
+    if (n.v === 0 && n.d === 0) return [(game.mode === 'practice' ? 'Practice round. ' : 'Visit 1 · dart 1. ') + hint, 'info'];
+    return ['Visit ' + (n.v + 1) + ' of 3 · dart ' + (n.d + 1) + '. Keep your own count.', 'info'];
+  }
+
+  /* ---------- board ---------- */
+  var markersG, hiPath, svgEl, aimUI, reticle, loupe, loupeZoom, chip, chipRect, chipText;
+  var LOUPE_R = 40, ZOOM = 3.2;
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function f(v) { return v.toFixed(2); }
+  function pt(r, a) { var rad = a * Math.PI / 180; return [150 + r * Math.cos(rad), 150 + r * Math.sin(rad)]; }
+  function sector(r1, r2, a1, a2) {
+    var p1 = pt(r1, a1), p2 = pt(r2, a1), p3 = pt(r2, a2), p4 = pt(r1, a2);
+    return 'M' + f(p1[0]) + ' ' + f(p1[1]) + 'L' + f(p2[0]) + ' ' + f(p2[1]) +
+      'A' + f(r2) + ' ' + f(r2) + ' 0 0 1 ' + f(p3[0]) + ' ' + f(p3[1]) +
+      'L' + f(p4[0]) + ' ' + f(p4[1]) + 'A' + f(r1) + ' ' + f(r1) + ' 0 0 0 ' + f(p1[0]) + ' ' + f(p1[1]) + 'Z';
+  }
+  function circlePath(r) {
+    return 'M' + f(150 - r) + ' 150a' + f(r) + ' ' + f(r) + ' 0 1 0 ' + f(2 * r) + ' 0a' + f(r) + ' ' + f(r) + ' 0 1 0 ' + f(-2 * r) + ' 0Z';
+  }
+  // Which segment is at board point (x, y)? Returns the aim and its outline, or null off the board.
+  function segAt(x, y) {
+    var dx = x - 150, dy = y - 150, r = Math.sqrt(dx * dx + dy * dy);
+    if (r > R.dOut) return null;
+    if (r <= R.bull) return { aim: { r: 'D', n: 25 }, d: circlePath(R.bull) };
+    if (r <= R.outer) return { aim: { r: 'S', n: 25 }, d: circlePath(R.outer) + circlePath(R.bull) };
+    var deg = Math.atan2(dy, dx) * 180 / Math.PI;
+    var idx = Math.floor(((((deg + 99) % 360) + 360) % 360) / 18) % 20;
+    var ring = r < R.tIn ? RINGS[0] : r <= R.tOut ? RINGS[1] : r < R.dIn ? RINGS[2] : RINGS[3];
+    var a = -90 + idx * 18;
+    return { aim: { r: ring[0], n: ORDER[idx] }, d: sector(ring[1], ring[2], a - 9, a + 9) };
+  }
+  function addSeg(parent, d, fill, aim) {
+    var p = el('path', { d: d, fill: fill, 'fill-rule': 'evenodd', class: 'seg', tabindex: '0', role: 'button', 'aria-label': aimName(aim) }, parent);
+    p.setAttribute('data-r', aim.r);
+    p.setAttribute('data-n', String(aim.n));
+    return p;
+  }
+  function buildBoard() {
+    var svg = svgEl = $('#board');
+    var clip = el('clipPath', { id: 'loupeClip' }, el('defs', {}, svg));
+    el('circle', { r: LOUPE_R }, clip);
+
+    // Everything on the board lives in #scene so the magnifier can show a zoomed copy of it.
+    var scene = el('g', { id: 'scene' }, svg);
+    el('circle', { cx: 150, cy: 150, r: 149, fill: '#0A0E0C' }, scene);
+    var g = el('g', { stroke: '#8E948F', 'stroke-width': '0.45' }, scene);
+    ORDER.forEach(function (n, i) {
+      var a = -90 + i * 18, dark = i % 2 === 0;
+      RINGS.forEach(function (ring) {
+        var fill = ring[0] === 'S' ? (dark ? '#1A1C1B' : '#E9DFC4') : (dark ? '#C8202F' : '#138A4A');
+        addSeg(g, sector(ring[1], ring[2], a - 9, a + 9), fill, { r: ring[0], n: n });
+      });
+    });
+    addSeg(g, circlePath(R.outer) + circlePath(R.bull), '#138A4A', { r: 'S', n: 25 });
+    addSeg(g, circlePath(R.bull), '#C8202F', { r: 'D', n: 25 });
+    hiPath = el('path', { class: 'aim-hi', 'fill-rule': 'evenodd', d: '' }, scene);
+    var nums = el('g', { 'aria-hidden': 'true' }, scene);
+    ORDER.forEach(function (n, i) {
+      var p = pt(139.5, -90 + i * 18);
+      var t = el('text', { class: 'num', x: f(p[0]), y: f(p[1]), dy: '0.35em' }, nums);
+      t.textContent = n;
+    });
+    markersG = el('g', { 'aria-hidden': 'true' }, scene);
+
+    // Aiming overlay: a magnifier for touch, a label chip for both.
+    aimUI = el('g', { id: 'aimUI', visibility: 'hidden', 'aria-hidden': 'true' }, svg);
+    loupe = el('g', {}, aimUI);
+    el('circle', { class: 'loupe-bg', r: LOUPE_R }, loupe);
+    loupeZoom = el('g', {}, el('g', { 'clip-path': 'url(#loupeClip)' }, loupe));
+    el('use', { href: '#scene' }, loupeZoom);
+    el('path', { class: 'loupe-cross', d: 'M-12 0H-4M4 0H12M0 -12V-4M0 4V12' }, loupe);
+    el('circle', { class: 'loupe-ring', r: LOUPE_R }, loupe);
+    reticle = el('g', {}, aimUI);
+    el('circle', { r: 4.5, fill: 'none', stroke: '#0A0E0C', 'stroke-width': 3.4, opacity: 0.55 }, reticle);
+    el('circle', { r: 4.5, fill: 'none', stroke: '#fff', 'stroke-width': 1.4 }, reticle);
+    el('path', { d: 'M-8 0H-2.5M2.5 0H8M0 -8V-2.5M0 2.5V8', stroke: '#fff', 'stroke-width': 1.4, 'stroke-linecap': 'round', fill: 'none' }, reticle);
+    chip = el('g', { class: 'aim-chip' }, aimUI);
+    chipRect = el('rect', { y: -8.5, height: 17, rx: 5 }, chip);
+    chipText = el('text', { dy: '0.36em' }, chip);
+
+    function toBoard(e) {
+      var m = svg.getScreenCTM();
+      if (!m) return null;
+      var p = svg.createSVGPoint();
+      p.x = e.clientX; p.y = e.clientY;
+      var q = p.matrixTransform(m.inverse());
+      return { x: q.x, y: q.y };
+    }
+    function showAim(p, magnify) {
+      var s = p ? segAt(p.x, p.y) : null;
+      if (!p) { aimUI.setAttribute('visibility', 'hidden'); return; }
+      aimUI.setAttribute('visibility', 'visible');
+      var text = s ? label(s.aim) : 'Off the board';
+      var w = Math.max(30, text.length * 6.4 + 14);
+      chipText.textContent = text;
+      chipRect.setAttribute('x', f(-w / 2));
+      chipRect.setAttribute('width', f(w));
+      if (magnify) {
+        var lx = Math.min(Math.max(p.x, 40), 260), ly = p.y - 80;
+        reticle.setAttribute('visibility', 'hidden');
+        loupe.setAttribute('visibility', 'visible');
+        loupe.setAttribute('transform', 'translate(' + f(lx) + ' ' + f(ly) + ')');
+        loupeZoom.setAttribute('transform', 'scale(' + ZOOM + ') translate(' + f(-p.x) + ' ' + f(-p.y) + ')');
+        chip.setAttribute('transform', 'translate(' + f(lx) + ' ' + f(ly - LOUPE_R - 13) + ')');
+      } else {
+        loupe.setAttribute('visibility', 'hidden');
+        reticle.setAttribute('visibility', 'visible');
+        reticle.setAttribute('transform', 'translate(' + f(p.x) + ' ' + f(p.y) + ')');
+        chip.setAttribute('transform', 'translate(' + f(Math.min(p.x + 22, 280)) + ' ' + f(p.y - 16) + ')');
+      }
+    }
+
+    // The crosshair sways around the finger or cursor. The dart goes where the crosshair is at the moment
+    // of release (touch) or press (mouse), then scatters on top of that. Keyboard throws skip the sway.
+    var cur = null, magnify = false, raf = 0, t0 = 0, ph = [0, 0, 0, 0];
+    function swayOffset(now) {
+      var t = (now - t0) / 1000, A = tuning.sway * MM, w = 2 * Math.PI * 0.55 * tuning.swaySpeed;
+      return {
+        x: A * (0.62 * Math.sin(w * t + ph[0]) + 0.38 * Math.sin(w * 1.93 * t + ph[1])),
+        y: A * (0.62 * Math.sin(w * 1.31 * t + ph[2]) + 0.38 * Math.sin(w * 2.47 * t + ph[3]))
+      };
+    }
+    function swayed(now) { var o = swayOffset(now); return { x: cur.x + o.x, y: cur.y + o.y }; }
+    function frame(now) {
+      raf = 0;
+      if (!cur) return;
+      showAim(swayed(now), magnify);
+      raf = requestAnimationFrame(frame);
+    }
+    function startAim(p, m) {
+      cur = p; magnify = m;
+      t0 = performance.now();
+      ph = [Math.random() * 6.283, Math.random() * 6.283, Math.random() * 6.283, Math.random() * 6.283];
+      showAim(swayed(t0), m);
+      if (!raf) raf = requestAnimationFrame(frame);
+    }
+    function stopAim() {
+      cur = null;
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      showAim(null, false);
+    }
+    // Where the dart is headed right now, or null if nothing is being aimed.
+    function release(e) {
+      if (!cur) return null;
+      cur = toBoard(e) || cur;
+      var q = swayed(performance.now());
+      if (q.x < 0 || q.x > 300 || q.y < 0 || q.y > 300) return null;   // letting go outside the board's square cancels
+      var s = segAt(q.x, q.y);
+      return { aim: s ? s.aim : { r: 'M', n: numberAt(q.x, q.y) }, at: q };   // aiming off the wire is allowed
+    }
+
+    // Mouse: hover to aim, press to throw.
+    // Touch and pen: hold to aim with the magnifier, slide to adjust, let go to throw. Let go off the board to cancel.
+    var touchAiming = false;
+    svg.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    svg.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse') {
+        if (e.button !== 0) return;
+        if (!cur) startAim(toBoard(e), false);
+        var t = release(e);
+        if (t) throwAt(t.aim, t.at);
+        return;
+      }
+      e.preventDefault();
+      touchAiming = true;
+      try { svg.setPointerCapture(e.pointerId); } catch (x) {}
+      startAim(toBoard(e), true);
+    });
+    svg.addEventListener('pointermove', function (e) {
+      var p = toBoard(e);
+      if (!p) return;
+      if (e.pointerType === 'mouse') { if (cur) cur = p; else startAim(p, false); }
+      else if (touchAiming && cur) cur = p;
+    });
+    svg.addEventListener('pointerup', function (e) {
+      if (e.pointerType === 'mouse' || !touchAiming) return;
+      touchAiming = false;
+      var t = release(e);
+      stopAim();
+      if (t) throwAt(t.aim, t.at);
+    });
+    svg.addEventListener('pointercancel', function () { touchAiming = false; stopAim(); });
+    svg.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') stopAim(); });
+
+    // Keyboard and screen readers: every segment is a focusable button.
+    function isSeg(t) { return t && t.classList && t.classList.contains('seg'); }
+    function aimOf(t) { return { r: t.getAttribute('data-r'), n: +t.getAttribute('data-n') }; }
+    svg.addEventListener('keydown', function (e) {
+      if ((e.key === 'Enter' || e.key === ' ') && isSeg(e.target)) { e.preventDefault(); throwAt(aimOf(e.target)); }
+    });
+    svg.addEventListener('click', function (e) { if (e.detail === 0 && isSeg(e.target)) throwAt(aimOf(e.target)); });
+    svg.addEventListener('focusin', function (e) { if (isSeg(e.target)) hiPath.setAttribute('d', e.target.getAttribute('d')); });
+    svg.addEventListener('focusout', function () { hiPath.setAttribute('d', ''); });
+  }
+
+  function renderMarkers(fresh) {
+    markersG.textContent = '';
+    var last = game.visits[game.visits.length - 1];
+    if (!last) return;
+    last.darts.forEach(function (dt, i) {
+      var p = dt.p;
+      var dx = p.x - 150, dy = p.y - 150, rr = Math.sqrt(dx * dx + dy * dy);
+      if (rr > 145) p = { x: 150 + dx * 145 / rr, y: 150 + dy * 145 / rr };   // keep wild misses visible
+      var outer = el('g', { class: 'marker', transform: 'translate(' + f(p.x) + ' ' + f(p.y) + ')' }, markersG);
+      var inner = el('g', { class: fresh && i === last.darts.length - 1 ? 'drop' : '' }, outer);
+      el('circle', { r: 4.6 }, inner);
+      var t = el('text', { dy: '0.35em' }, inner);
+      t.textContent = i + 1;
+    });
+  }
+
+
+  /* ---------- rendering ---------- */
+  function icon(kind, size) {
+    if (kind === 'on') return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+    if (kind === 'near') return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18L18 6"/><path d="M9 6h9v9"/></svg>';
+    if (kind === 'wrong') return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>';
+    return '';
+  }
+  function tileNote(dt, k) {
+    if (k === 'on') return 'on route';
+    if ((k === 'near' || k === 'wrong') && dt.w) return 'wanted ' + label(dt.w);
+    return 'aimed ' + label(dt.aim);
+  }
+  function renderLog(fresh) {
+    var next = nextSlot(game);
+    var html = '';
+    for (var v = 0; v < VISITS; v++) {
+      var visit = game.visits[v];
+      var bust = !!(visit && visit.bust);
+      html += '<div class="row"><span class="tag' + (bust ? ' bust' : '') + '">' + (bust ? 'Bust' : String(v + 1)) + '</span>';
+      for (var d = 0; d < 3; d++) {
+        if (visit && d < visit.darts.length) {
+          var dt = visit.darts[d], k = kindOf(dt);
+          var isNew = fresh && v === game.visits.length - 1 && d === visit.darts.length - 1;
+          html += '<div class="tile ' + k + (isNew ? ' fresh' : '') + '"><span class="v">' + label(dt.hit) + '</span><span class="c">' + tileNote(dt, k) + '</span>' + icon(k, 11) + '</div>';
+        } else if (next && next.v === v && next.d === d) {
+          html += '<div class="tile next" aria-label="Next dart"></div>';
+        } else {
+          html += '<div class="tile"></div>';
+        }
+      }
+      html += '</div>';
+    }
+    $('#log').innerHTML = html;
+  }
+  function render(fresh, msg, kind) {
+    var st = status(game);
+    $('#eyebrow').textContent = game.mode === 'daily' ? 'Checkout · No. ' + game.no
+      : game.mode === 'nine' ? 'Nine-darter · attempt ' + game.attempt : 'Practice round';
+    $('#targetNum').textContent = game.target;
+    var lb = $('#leftBox');
+    lb.className = 'left-box' + (st.won ? ' won' : st.lost ? ' lost' : '');
+    lb.textContent = st.won ? '0' : st.lost ? String(st.left) : '?';
+    lb.setAttribute('aria-label', st.done ? 'Score left: ' + (st.won ? 0 : st.left) : 'Score left is hidden');
+    if (msg === undefined) { var rm = restingMessage(); msg = rm[0]; kind = rm[1]; }
+    var m = $('#msg');
+    m.textContent = msg;
+    m.className = 'msg' + (kind && kind !== 'info' ? ' ' + kind : '');
+    renderLog(!!fresh);
+    renderMarkers(!!fresh);
+    renderFoot(st);
+  }
+  function renderFoot(st) {
+    var text = null, a = null, b = null;
+    var darts = 'Darts thrown <strong id="count">' + dartsUsed(game) + ' / 9</strong>';
+    if (game.mode === 'daily') {
+      if (!st.done) text = darts;
+      else { a = ['Practice', 'practice']; b = ['Nine-darter', 'nine']; }
+    } else if (game.mode === 'practice') {
+      text = darts; a = ['Today’s game', 'daily'];
+    } else {
+      a = ['Today’s game', 'daily'];
+      if (st.done) b = ['Go again', 'nine'];
+      else text = darts;
+    }
+    var t = $('#footText');
+    t.hidden = !text;
+    if (text) t.innerHTML = text;
+    [[$('#footA'), a], [$('#footB'), b]].forEach(function (p) {
+      p[0].hidden = !p[1];
+      if (p[1]) { p[0].textContent = p[1][0]; p[0].setAttribute('data-action', p[1][1]); }
+    });
+    $('.foot').classList.toggle('two', !text);
+  }
+
+  /* ---------- stats ---------- */
+  function stats() {
+    var days = Object.keys(store.games).map(Number).filter(function (n) { return store.games[n] && store.games[n].done; }).sort(function (a, b) { return a - b; });
+    var wins = days.filter(function (n) { return store.games[n].won; });
+    var avg = wins.length ? wins.reduce(function (t, n) { return t + store.games[n].darts; }, 0) / wins.length : null;
+    var best = wins.length ? Math.min.apply(null, wins.map(function (n) { return store.games[n].darts; })) : null;
+    var run = 0, prev = null;
+    days.forEach(function (n) {
+      if (!store.games[n].won) run = 0;
+      else run = (prev !== null && n === prev + 1 && run > 0) ? run + 1 : 1;
+      prev = n;
+    });
+    var t = todayNo(), last = days[days.length - 1];
+    var streak = (last === t || last === t - 1) ? run : 0;
+    return { played: days.length, avg: avg, best: best, streak: streak };
+  }
+
+  /* ---------- result + stats dialog ---------- */
+  var X_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>';
+  var SHARE_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/></svg>';
+  var BRAND = '<div class="brand" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="#F3EEDF" stroke-width="2"/><circle cx="13" cy="13" r="6.5" fill="none" stroke="#F3EEDF" stroke-width="2"/><circle cx="13" cy="13" r="2.6" fill="#D7263D"/></svg>CHECKDLE</div>';
+  var KIND_NAME = { on: 'on the route', near: 'right number, wrong ring', wrong: 'wrong number', off: 'off the board' };
+
+  function shareCard(st) {
+    var rows = game.visits.map(function (v) {
+      return '<div class="sq-row">' + v.darts.map(function (dt) {
+        var k = kindOf(dt);
+        return '<span class="sq ' + k + '" role="img" aria-label="' + KIND_NAME[k] + '">' + icon(k, 14) + '</span>';
+      }).join('') + (v.bust ? '<span class="sq-bust">Bust</span>' : '') + '</div>';
+    }).join('');
+    return '<section class="card share-card" aria-label="Your result"><div class="squares">' + rows + '</div>' +
+      '<div class="share-side"><span class="big">' + (st.won ? dartsUsed(game) : '–') + '</span><span class="share-cap">' +
+      (st.won ? 'darts' : 'not out') + (game.mode === 'daily' ? ' · Checkdle ' + game.no : '') + '</span></div></section>';
+  }
+  function countCard() {
+    var start = game.target, rows = '';
+    game.visits.forEach(function (v, vi) {
+      var run = start, cells = '';
+      v.darts.forEach(function (dt, di) {
+        run -= value(dt.hit);
+        var note, cls = '';
+        if (v.bust && di === v.darts.length - 1) { note = 'Bust'; cls = 'bust'; }
+        else if (run === 0) { note = 'Out'; cls = 'out'; }
+        else note = run + ' left';
+        cells += '<div class="cell"><span class="chip ' + kindOf(dt) + '">' + label(dt.hit) + '</span><small class="' + cls + '">' + note + '</small></div>';
+      });
+      for (var x = v.darts.length; x < 3; x++) cells += '<div class="cell"></div>';
+      rows += '<div class="count-row"><span class="vno">' + (vi + 1) + '</span>' + cells + '</div>';
+      if (!v.bust) start = run;
+    });
+    return '<section class="card" aria-label="Your count, revealed"><h3 class="eyebrow card-title">Your count, revealed</h3>' + rows + '</section>';
+  }
+  function statsBlock() {
+    var s = stats();
+    return '<dl class="stats">' +
+      '<div><dt>Played</dt><dd>' + s.played + '</dd></div>' +
+      '<div><dt>Avg darts</dt><dd>' + (s.avg == null ? '–' : s.avg.toFixed(1)) + '</dd></div>' +
+      '<div><dt>Best</dt><dd>' + (s.best == null ? '–' : s.best) + '</dd></div>' +
+      '<div><dt>Streak</dt><dd>' + s.streak + '</dd></div></dl>';
+  }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+
+  function nineBlock() {
+    var n = nineStats();
+    if (!n.attempts) return '';
+    return '<section class="card" aria-label="Nine-darter"><h3 class="eyebrow card-title">Nine-darter</h3><dl class="stats three" style="margin:0">' +
+      '<div><dt>Attempts</dt><dd>' + n.attempts + '</dd></div>' +
+      '<div><dt>Best perfect</dt><dd>' + (n.best || 0) + '/9</dd></div>' +
+      '<div><dt>Nine-darters</dt><dd>' + (n.nines || 0) + '</dd></div></dl></section>';
+  }
+  function hero(eyebrow, title, sub) {
+    return '<div class="hero"><span class="eyebrow">' + eyebrow + '</span><h2 id="resultTitle" tabindex="-1" autofocus>' + title + '</h2><p>' + sub + '</p></div>';
+  }
+  function btn(kind, text, action) {
+    return '<button class="btn ' + kind + ' block" type="button" data-action="' + action + '">' + text + '</button>';
+  }
+  var COUNTDOWN = '<p class="next">Next checkout in <b id="countdown">--:--:--</b></p>';
+
+  function openResult() {
+    var dlg = $('#result');
+    var st = status(game);
+    var mode = game.mode;
+    var summary = st.done && (mode !== 'nine' || st.won);
+    var h = '<div class="sheet"><div class="sheet-head"><span class="spacer"></span>' + BRAND +
+      '<button class="icon-btn" type="button" data-action="close" aria-label="Close">' + X_ICON + '</button></div>';
+    if (summary && mode === 'nine') {
+      h += hero('Attempt ' + game.attempt + ' · 501', 'Nine-darter', '501 in nine perfect darts.');
+      h += shareCard(st) + countCard();
+    } else if (summary) {
+      var all = []; game.visits.forEach(function (v) { all = all.concat(v.darts); });
+      var offRoute = all.filter(function (dt) { return kindOf(dt) !== 'on'; }).length;
+      var busts = game.visits.filter(function (v) { return v.bust; }).length;
+      var sub = st.won
+        ? 'Out in ' + dartsUsed(game) + ' darts. ' + (offRoute ? offRoute + ' off the route' : 'Every dart on the route') + ', ' + (busts ? plural(busts, 'bust', 'busts') : 'no busts') + '.'
+        : 'You were on ' + st.left + ' when the darts ran out.';
+      h += hero((mode === 'daily' ? 'Checkout No. ' + game.no : 'Practice') + ' · ' + game.target, st.won ? 'Game shot' : 'Out of darts', sub);
+      h += shareCard(st) + countCard();
+    } else {
+      h += hero('Statistics', 'Your form', mode === 'daily' ? 'Today’s checkout is still on.'
+        : mode === 'practice' ? 'Practice rounds don’t count.' : 'Every attempt starts fresh.');
+    }
+    if (summary && mode === 'nine') h += nineBlock();
+    else if (mode !== 'practice' || !summary) h += statsBlock() + nineBlock();
+    h += '<div class="actions">';
+    if (summary && mode === 'daily') {
+      h += '<button class="btn primary block" type="button" data-action="share">' + SHARE_ICON + 'Share result</button>' + COUNTDOWN +
+        btn('ghost', 'Go for a nine-darter', 'nine') + btn('ghost', 'Practice round', 'practice');
+    } else if (summary && mode === 'nine') {
+      h += '<button class="btn primary block" type="button" data-action="share">' + SHARE_ICON + 'Share it</button>' +
+        btn('ghost', 'Go again', 'nine') + btn('ghost', 'Today’s game', 'daily');
+    } else if (summary) {
+      h += btn('primary', 'Another practice', 'practice') + btn('ghost', 'Today’s game', 'daily');
+    } else {
+      h += btn('primary', 'Back to the board', 'close') + COUNTDOWN;
+    }
+    h += '</div></div>';
+    dlg.innerHTML = h;
+    if (!dlg.open) dlg.showModal();
+    tick();
+  }
+
+  /* ---------- share ---------- */
+  function shareText() {
+    var st = status(game);
+    var sq = { on: '🟩', near: '🟧', wrong: '🟥', off: '⬛' };
+    var lines = game.mode === 'nine'
+      ? ['Checkdle nine-darter!', '501 in 9 darts · attempt ' + game.attempt]
+      : ['Checkdle ' + game.no + ' · ' + game.target, st.won ? 'Out in ' + dartsUsed(game) + ' darts' : 'Not checked out'];
+    game.visits.forEach(function (v) {
+      lines.push(v.darts.map(function (dt) { return sq[kindOf(dt)]; }).join('') + (v.bust ? ' bust' : ''));
+    });
+    if (/^https?:$/.test(location.protocol)) lines.push(location.origin + location.pathname);
+    return lines.join('\n');
+  }
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      (document.querySelector('dialog[open]') || document.body).appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch (e) { return false; }
+  }
+  function share() {
+    var text = shareText();
+    var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (navigator.share && touch) {
+      navigator.share({ text: text }).catch(function (e) {
+        if (!e || e.name !== 'AbortError') copyText(text).then(function (ok) { toast(ok ? 'Result copied' : 'Couldn’t copy the result'); });
+      });
+      return;
+    }
+    copyText(text).then(function (ok) { toast(ok ? 'Result copied to clipboard' : 'Couldn’t copy the result'); });
+  }
+  var toastTimer;
+  function toast(text) {
+    var t = $('#toast');
+    (document.querySelector('dialog[open]') || document.body).appendChild(t);
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  /* ---------- clock: countdown + new day ---------- */
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function tick() {
+    var now = new Date();
+    var next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    var s = Math.max(0, Math.floor((next - now) / 1000));
+    var cd = document.getElementById('countdown');
+    if (cd) cd.textContent = pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(s % 60);
+    if (game.mode === 'daily' && todayNo() !== game.no) {
+      game = dailyGame();
+      render();
+      var d = $('#result');
+      if (d.open) d.close();
+    }
+  }
+
+  /* ---------- wiring ---------- */
+  function startPractice() { game = practiceGame(); render(); }
+  function backToDaily() { game = dailyGame(); render(); }
+
+  $('#helpBtn').addEventListener('click', function () { $('#help').showModal(); });
+  $('#statsBtn').addEventListener('click', openResult);
+  function startNine() { if (!dailyDone()) return; game = nineGame(); render(); }
+  function doAction(a) {
+    if (a === 'practice') startPractice();
+    else if (a === 'nine') startNine();
+    else if (a === 'daily') backToDaily();
+  }
+  ['#footA', '#footB'].forEach(function (s) {
+    $(s).addEventListener('click', function (e) { doAction(e.currentTarget.getAttribute('data-action')); });
+  });
+  $('#help').addEventListener('click', function (e) {
+    var dlg = e.currentTarget;
+    if (e.target === dlg || (e.target.closest && e.target.closest('[data-close]'))) dlg.close();
+  });
+  $('#result').addEventListener('click', function (e) {
+    var dlg = e.currentTarget;
+    if (e.target === dlg) { dlg.close(); return; }
+    var b = e.target.closest && e.target.closest('[data-action]');
+    if (!b) return;
+    var a = b.getAttribute('data-action');
+    if (a === 'close') dlg.close();
+    else if (a === 'share') share();
+    else { dlg.close(); doAction(a); }
+  });
+
+  /* ---------- another tab saved: reload so its result isn't overwritten ---------- */
+  window.addEventListener('storage', function (e) {
+    if (e.key !== KEY) return;
+    store = readStore();
+    if (game.mode === 'daily') { game = dailyGame(); render(); }
+  });
+
+
+  buildBoard();
+  game = dailyGame();
+  render();
+  if (!store.seenHelp) {
+    store.seenHelp = true;
+    writeStore();
+    $('#help').showModal();
+  } else if (status(game).done) {
+    setTimeout(openResult, 500);
+  }
+  setInterval(tick, 1000);
+
+  // Exposed for testing only.
+  window.__checkdle = { ROUTES: ROUTES, CHART: CHART, routeKind: routeKind, chartAim: chartAim, status: function () { return status(game); }, game: function () { return game; }, scatter: scatter, landing: landing, aimPoint: aimPoint, tuning: tuning, rand: rand, pickTarget: pickTarget, dailyTarget: dailyTarget, canFinish: canFinish, nineStats: nineStats, segAt: segAt, R: R };
+})();
+</script>
+</body>
+</html>
