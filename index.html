@@ -141,6 +141,13 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
 .stats div{display:flex;flex-direction:column-reverse;gap:2px}
 .stats dt{font-size:12px;color:var(--muted)}
 .stats dd{margin:0;font-family:var(--display);font-weight:700;font-size:30px;line-height:1}
+.dist-head{display:flex;justify-content:space-between;gap:12px}
+.dist-row{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:center}
+.dist-row+.dist-row{margin-top:4px}
+.dist-k{font-family:var(--display);font-weight:700;font-size:16px;line-height:22px;color:var(--muted);text-align:center}
+.dist-bar{height:22px;border-radius:5px;background:var(--off);color:var(--ink-2);display:flex;align-items:center;justify-content:flex-end;padding:0 7px;font-family:var(--display);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.dist-bar.today{background:var(--on);color:#fff}
+.dist-bar.today.x{background:var(--wrong)}
 .actions{margin-top:auto;padding-top:20px;display:flex;flex-direction:column;gap:10px}
 .next{margin:0;text-align:center;font-size:14px;color:var(--muted)}
 .next b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
@@ -660,7 +667,8 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     markersG = el('g', { 'aria-hidden': 'true' }, scene);
 
     // Aiming overlay: a magnifier for touch, a label chip for both.
-    aimUI = el('g', { id: 'aimUI', visibility: 'hidden', 'aria-hidden': 'true' }, svg);
+    // Hidden with display, not visibility: a child set visible would still show inside a hidden parent.
+    aimUI = el('g', { id: 'aimUI', display: 'none', 'aria-hidden': 'true' }, svg);
     loupe = el('g', {}, aimUI);
     el('circle', { class: 'loupe-bg', r: LOUPE_R }, loupe);
     loupeZoom = el('g', {}, el('g', { 'clip-path': 'url(#loupeClip)' }, loupe));
@@ -685,8 +693,8 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     }
     function showAim(p, magnify) {
       var s = p ? segAt(p.x, p.y) : null;
-      if (!p) { aimUI.setAttribute('visibility', 'hidden'); return; }
-      aimUI.setAttribute('visibility', 'visible');
+      if (!p) { aimUI.setAttribute('display', 'none'); return; }
+      aimUI.removeAttribute('display');
       var text = s ? label(s.aim) : 'Off the board';
       var w = Math.max(30, text.length * 6.4 + 14);
       chipText.textContent = text;
@@ -877,16 +885,23 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     var days = Object.keys(store.games).map(Number).filter(function (n) { return store.games[n] && store.games[n].done; }).sort(function (a, b) { return a - b; });
     var wins = days.filter(function (n) { return store.games[n].won; });
     var avg = wins.length ? wins.reduce(function (t, n) { return t + store.games[n].darts; }, 0) / wins.length : null;
-    var best = wins.length ? Math.min.apply(null, wins.map(function (n) { return store.games[n].darts; })) : null;
-    var run = 0, prev = null;
+    // dist[3..9] = wins in that many darts, dist.X = not checked out. Every daily needs at least 3 darts.
+    var dist = { X: days.length - wins.length };
+    for (var k = 3; k <= 9; k++) dist[k] = 0;
+    wins.forEach(function (n) { dist[store.games[n].darts]++; });
+    var run = 0, maxRun = 0, prev = null;
     days.forEach(function (n) {
       if (!store.games[n].won) run = 0;
       else run = (prev !== null && n === prev + 1 && run > 0) ? run + 1 : 1;
+      maxRun = Math.max(maxRun, run);
       prev = n;
     });
     var t = todayNo(), last = days[days.length - 1];
     var streak = (last === t || last === t - 1) ? run : 0;
-    return { played: days.length, avg: avg, best: best, streak: streak };
+    return {
+      played: days.length, winPct: days.length ? Math.round(wins.length / days.length * 100) : 0,
+      avg: avg, streak: streak, maxStreak: maxRun, dist: dist
+    };
   }
 
   /* ---------- result + stats dialog ---------- */
@@ -928,9 +943,26 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     var s = stats();
     return '<dl class="stats">' +
       '<div><dt>Played</dt><dd>' + s.played + '</dd></div>' +
-      '<div><dt>Avg darts</dt><dd>' + (s.avg == null ? '–' : s.avg.toFixed(1)) + '</dd></div>' +
-      '<div><dt>Best</dt><dd>' + (s.best == null ? '–' : s.best) + '</dd></div>' +
-      '<div><dt>Streak</dt><dd>' + s.streak + '</dd></div></dl>';
+      '<div><dt>Win %</dt><dd>' + s.winPct + '</dd></div>' +
+      '<div><dt>Streak</dt><dd>' + s.streak + '</dd></div>' +
+      '<div><dt>Max streak</dt><dd>' + s.maxStreak + '</dd></div></dl>' + distBlock(s);
+  }
+  // Wordle-style bars: how many dailies were checked out in each number of darts. Today's result is highlighted.
+  function distBlock(s) {
+    if (!s.played) return '';
+    var today = store.games[todayNo()], mark = null;
+    if (game.mode === 'daily' && today && today.done) mark = today.won ? String(today.darts) : 'X';
+    var keys = ['3', '4', '5', '6', '7', '8', '9', 'X'];
+    var top = Math.max.apply(null, keys.map(function (k) { return s.dist[k]; }));
+    var rows = keys.map(function (k) {
+      var n = s.dist[k], w = top ? n / top * 100 : 0;
+      var cls = 'dist-bar' + (k === mark ? ' today' + (k === 'X' ? ' x' : '') : '');
+      var name = k === 'X' ? 'Not checked out' : k + ' darts';
+      return '<div class="dist-row"><span class="dist-k" aria-hidden="true">' + k + '</span>' +
+        '<span class="' + cls + '" style="width:max(26px,' + w.toFixed(1) + '%)" aria-label="' + name + ': ' + plural(n, 'game', 'games') + '">' + n + '</span></div>';
+    }).join('');
+    return '<section class="card" aria-label="Darts to check out"><h3 class="eyebrow card-title dist-head"><span>Darts to check out</span>' +
+      (s.avg == null ? '' : '<span>Avg ' + s.avg.toFixed(1) + '</span>') + '</h3>' + rows + '</section>';
   }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
@@ -999,7 +1031,7 @@ dialog::backdrop{background:rgba(4,7,5,.78)}
     var sq = { on: '🟩', near: '🟧', wrong: '🟥', off: '⬛' };
     var lines = game.mode === 'nine'
       ? ['Checkdle nine-darter!', '501 in 9 darts · attempt ' + game.attempt]
-      : ['Checkdle ' + game.no + ' · ' + game.target, st.won ? 'Out in ' + dartsUsed(game) + ' darts' : 'Not checked out'];
+      : ['Checkdle ' + game.no + ' · ' + game.target + ' · ' + (st.won ? dartsUsed(game) : 'X') + '/9'];
     game.visits.forEach(function (v) {
       lines.push(v.darts.map(function (dt) { return sq[kindOf(dt)]; }).join('') + (v.bust ? ' bust' : ''));
     });
